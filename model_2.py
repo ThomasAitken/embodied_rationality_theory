@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from types import MethodType
 from typing import Callable
 
-from model_1 import InvestmentV1
+from models.class_1.classes import InvestmentV1
 
 
 class InvestmentV2(InvestmentV1):

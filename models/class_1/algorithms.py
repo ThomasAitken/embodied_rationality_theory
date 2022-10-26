@@ -1,11 +1,15 @@
-from typing import TYPE_CHECKING, TypedDict
 from copy import deepcopy
+from typing import TYPE_CHECKING, TypedDict
 
 if TYPE_CHECKING:
-    from .model_1 import InvestmentV1
+    from .classes import InvestmentV1, OtherEnvironmentalFactors, Payout
 
 # max_investment, reward_payout, resources_payout, resources_expended
 InvestmentSelection = tuple[InvestmentV1, int, int, int]
+
+
+def adjust_payout_for_environment(environment: OtherEnvironmentalFactors) -> Payout:
+    pass
 
 
 def select_max_investment_by_reward_maximisation(
@@ -15,9 +19,7 @@ def select_max_investment_by_reward_maximisation(
     Finds the selection that maximises reward. If there is more than one, finds the one that costs the least
     resources.
     """
-    investments_with_payouts = [
-        (investment, investment.compute_payouts_simple(resources)) for investment in investments
-    ]
+    investments_with_payouts = [(investment, investment.compute_payout(resources)) for investment in investments]
     max_reward = max(map(lambda x: x[1][0], investments_with_payouts))
     # select investment with max reward and highest net resources
     max_investment = max(
@@ -32,9 +34,9 @@ def select_max_investment_by_reward_over_resources_profit(
     investments: list[InvestmentV1], resources: int
 ) -> InvestmentSelection:
     max_investment = max(
-        investments, key=lambda x: x.compute_payouts_simple(resources)[0] - x.compute_payouts_simple(resources)[2]
+        investments, key=lambda x: x.compute_payout(resources)[0] - x.compute_payout(resources)[2]
     )  # reward - resources_expended
-    reward_payout, resources_payout, resources_expended = max_investment.compute_payouts_simple(resources)
+    reward_payout, resources_payout, resources_expended = max_investment.compute_payout(resources)
     return max_investment, reward_payout, resources_payout, resources_expended
 
 
@@ -43,10 +45,9 @@ def select_max_investment_by_fixed_tradeoff_heuristic(
 ) -> InvestmentSelection:
     max_investment = max(
         investments,
-        key=lambda x: reward_bias * x.compute_payouts_simple(resources)[0]
-        + (1 - reward_bias) * x.compute_payouts_simple(resources)[1],
+        key=lambda x: reward_bias * x.compute_payout(resources)[0] + (1 - reward_bias) * x.compute_payout(resources)[1],
     )  # maximise weighted average of reward/resources with weights given by "reward_bias"
-    reward_payout, resources_payout, resources_expended = max_investment.compute_payouts_simple(resources)
+    reward_payout, resources_payout, resources_expended = max_investment.compute_payout(resources)
     return max_investment, reward_payout, resources_payout, resources_expended
 
 
@@ -133,4 +134,8 @@ def boundedly_optimise_max_investment(
 
         max_resources_consumable = max_resources_consumable_for_next_round
 
-    return list(optimal_lookup[lookahead_steps].values())[-1]
+    final_step_values = list(optimal_lookup[lookahead_steps].values())
+    top_value = final_step_values[-1]
+    return max(
+        filter(lambda r: r["reward_to_date"] == top_value, final_step_values), key=lambda r: r["resources_to_spend"]
+    )  # best value with most available resources

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from types import MethodType
 from typing import Callable
 
-from .algorithms import select_max_investment_by_reward_maximisation
+Payout = tuple[int, int, int]  # reward payout, resources payout, resources spent
 
 
 class InvestmentV1:
@@ -70,7 +70,7 @@ class InvestmentV1:
         pass
     """
 
-    def compute_payouts_simple(self, added_resources: int = 0) -> tuple[int, int, int]:
+    def compute_payout(self, added_resources: int = 0) -> Payout:
         """
         Returns three values:
             1.) the reward payout to be discharged at a given point in time (the total accrued, undischarged reward);
@@ -106,6 +106,15 @@ class InvestmentV1:
         self._total_resources_discharged -= resources_payout
 
 
+# class InvestmentV2(InvestmentV1):
+#     def compute_environment_adjusted_payout(
+#         self, unadjusted_payout: Payout, energetic_depletion_rate: float, baseline_death_probability: float
+#     ) -> Payout:
+#         """
+#         Adjuts payouts in accordance with the effect of environmental parameters on time discounting.
+#         """
+
+
 @dataclass
 class OtherEnvironmentalFactors:
     """
@@ -114,6 +123,7 @@ class OtherEnvironmentalFactors:
     """
 
     energetic_depletion_rate: float = 1.0  # baseline energetic resources of the agent depleted per time step
+    baseline_death_probability: float = 0  # baseline chance of the agent dying
 
 
 @dataclass
@@ -125,41 +135,3 @@ class AgentV1:
 # def get_max_of_function(function: Callable[[int], int], max_bound=1000) -> float:
 #     solution = scipy.optimize.minimize_scalar(lambda x: -function(x), bounds=[0,max_bound], method='bounded')
 #     return solution.x
-
-
-def compute_max_gain_kelly_choice_from_reward_function(
-    reward_function: Callable[[int], int],
-    resource_cost: int,
-    win_probability: float = 1.0,
-) -> tuple[int, float, int]:
-    """
-    Returns the Kelly fraction from the given parameters.
-    """
-    profit_function = lambda resource_cost: reward_function(resource_cost) - resource_cost
-    max_profit_cost = max(range(resource_cost), key=profit_function)
-    max_profit = profit_function(max_profit_cost)
-    b = (max_profit - max_profit_cost) / max_profit_cost  # proportion gained
-    fraction = win_probability - (1 - win_probability) / b
-    max_kelly_profit = fraction * max_profit
-    return max_kelly_profit
-
-
-if __name__ == "main":
-
-    perceived_investments: list[InvestmentV1] = generate_investments()
-
-    agent = AgentV1()
-
-    print("SIMPLE DETERMINISTIC OPTIMISATION\n")
-    for timestep in range(agent.expected_lifespan):
-        (
-            max_investment,
-            reward_payout,
-            resources_payout,
-            max_resources_expended,
-        ) = select_max_investment_by_reward_maximisation(perceived_investments, agent.energetic_resources)
-        max_investment.update_values_post_discharge(resources_expended, reward_payout, resources_payout)
-        agent.instrumental_resources -= resources_expended
-
-        print(f"Timestep {timestep+1}: agent spends {resources_expended} on ")
-        update_investments(perceived_investments)

@@ -43,8 +43,5 @@ class InvestmentSeed:
     resources_sampling_kurtosis: Literal["low", "medium", "high"]
 
 
-def generate_investments(seed: list[InvestmentSeed]) -> list[InvestmentV1]:
-    """
-    Generates the agent's environment.
-    """
+if __name__ == "main":
     pass
