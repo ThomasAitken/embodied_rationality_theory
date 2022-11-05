@@ -1,11 +1,10 @@
-from dataclasses import dataclass
 from types import MethodType
 from typing import Callable
 
-Payout = tuple[int, int, int]  # reward payout, resources payout, resources spent
+from models.deterministic.types import Payout
 
 
-class InvestmentV1:
+class InvestmentV2:
     """
     A thing in the environment into which an agent invests resources (energetic and instrumental), from which the agent
     expects to receive reward from their total investment according to the given "resources_to_reward" method and/or
@@ -34,8 +33,9 @@ class InvestmentV1:
         self,
         id: str,
         name: str,
-        resources_to_reward: Callable[[int], float],
-        resources_to_resources: Callable[[int], float],
+        resources_to_reward: Callable[[int], int],
+        resources_to_resources: Callable[[int], int],
+        inverse_resources_to_resources: Callable[[int], int],
         resource_capacity: int = 100,
         capacity_recovery_rate: float = 1.0,
         total_resources_invested: int = 0,
@@ -45,6 +45,7 @@ class InvestmentV1:
         self.name = name
         self.resources_to_reward = MethodType(resources_to_reward, self)
         self.resources_to_resources = MethodType(resources_to_resources, self)
+        self.inverse_resources_to_resources = MethodType(inverse_resources_to_resources, self)
         self.resource_capacity = resource_capacity
         self.capacity_recovery_rate = capacity_recovery_rate
         self.total_resources_invested = total_resources_invested
@@ -81,7 +82,7 @@ class InvestmentV1:
         """
         resources_expended = 0
         if added_resources != 0:
-            resources_expended = max(added_resources, self.resource_capacity)
+            resources_expended = min(added_resources, self.resource_capacity)
 
         reward_payout = (
             self.resources_to_reward(self.total_resources_invested + resources_expended) - self._total_reward_discharged
@@ -105,33 +106,30 @@ class InvestmentV1:
         self._total_reward_discharged -= reward_payout
         self._total_resources_discharged -= resources_payout
 
+    # def can_achieve_given_resources_profit(self, resources_profit: int) -> bool:
+    #     for possible_expenditure in range(self.resource_capacity + 1):
+    #         possible_profit = self.compute_payout(possible_expenditure)[1]
+    #         if possible_profit == resources_profit:
+    #             return True
+    #     return False
 
-# class InvestmentV2(InvestmentV1):
-#     def compute_environment_adjusted_payout(
-#         self, unadjusted_payout: Payout, energetic_depletion_rate: float, baseline_death_probability: float
-#     ) -> Payout:
-#         """
-#         Adjuts payouts in accordance with the effect of environmental parameters on time discounting.
-#         """
+    def get_payout_given_resource_parameters(
+        self, agent_resources_available: int, resources_profit: int
+    ) -> Payout | None:
+        resources_investible = min(agent_resources_available, self.resource_capacity)
+        for possible_expenditure in range(resources_investible + 1):
+            possible_payout = self.compute_payout(possible_expenditure)
+            if possible_payout[1] == resources_profit:
+                return possible_payout
+        return None
 
+    def get_min_resource_profit(self, agent_resources_available: int) -> int:
+        """
+        Calculates the minimum possible resources profit for a given investment with the given amount of resources.
+        """
+        resources_investible = min(agent_resources_available, self.resource_capacity)
+        return min(self.compute_payout(expenditure)[1] for expenditure in range(resources_investible + 1))
 
-@dataclass
-class OtherEnvironmentalFactors:
-    """
-    Contains the parameters determine other aspects of the agent's environment, apart from the investments within it.
-    Not used for the V1 model, just here as an illustration.
-    """
-
-    energetic_depletion_rate: float = 1.0  # baseline energetic resources of the agent depleted per time step
-    baseline_death_probability: float = 0  # baseline chance of the agent dying
-
-
-@dataclass
-class AgentV1:
-    energetic_resources: int = 100
-    expected_lifespan: int = 1000
-
-
-# def get_max_of_function(function: Callable[[int], int], max_bound=1000) -> float:
-#     solution = scipy.optimize.minimize_scalar(lambda x: -function(x), bounds=[0,max_bound], method='bounded')
-#     return solution.x
+    def get_max_resource_profit(self, agent_resources_available: int) -> int:
+        resources_investible = min(agent_resources_available, self.resource_capacity)
+        return max(self.compute_payout(expenditure)[1] for expenditure in range(resources_investible + 1))
