@@ -179,7 +179,8 @@ def boundedly_optimise_max_investment(
  
                     investment_copy.update_values_post_discharge(choice["resources_spent"], choice["reward"], choice["resource_profit"])
 
-                    world_copy_copy = [investment_copy if invest.id == investment.id else invest for invest in r.world_copy]
+                    world_copy_copy = [investment_copy if invest.id == investment.id else copy(invest) for invest in r.world_copy]
+                    update_investments(world_copy_copy)
 
                     new_resource_paths.append(ResourcePath(
                         resources_spent=r.resources_spent + choice["resources_spent"],
