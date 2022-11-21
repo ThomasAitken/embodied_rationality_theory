@@ -56,7 +56,7 @@ class InvestmentV1:
 
     def compute_payout(self, added_resources: int = 0) -> Payout:
         """
-        Returns three values:
+        Returns three values:\
             1.) the reward payout to be discharged at a given point in time;
             2.) the resources profit to be discharged at a given point in time;
             3.) the resources, of the "added_resources", actually spent by the agent.
@@ -70,19 +70,53 @@ class InvestmentV1:
         reward_payout = self.reward_discharge_amount if discharge_reached else 0
         resource_payout = self.resource_discharge_amount if discharge_reached else 0
         resource_profit = resource_payout - resources_expended
-        return (
-            reward_payout,
-            resource_profit,
-            resources_expended,
-        )
+        return {
+            "reward": reward_payout,
+            "resource_profit": resource_profit,
+            "resources_spent": resources_expended
+        }
 
-    def update_values_post_discharge(self, resources_invested: int, reward_payout: int, resources_payout: int):
+    def update_values_post_discharge(self, resources_invested: int, reward_payout: int, resources_profit: int):
         """
         Executed after a reward/resource discharge.
         """
         self.resource_capacity -= resources_invested
         self._total_reward_discharged -= reward_payout
-        self._total_resources_discharged -= resources_payout
+        self._total_resources_discharged -= (resources_profit + resources_invested)
+
+    def get_payout_given_resource_parameters(
+        self, agent_resources_available: int, resources_profit: int
+    ) -> Payout | None:
+        resources_investible = min(agent_resources_available, self.resource_capacity)
+        for possible_expenditure in range(resources_investible + 1):
+            possible_payout = self.compute_payout(possible_expenditure)
+            if possible_payout[1] == resources_profit:
+                return possible_payout
+        return None
+
+    def get_min_resource_profit(self, agent_resources_available: int) -> int:
+        """
+        Calculates the minimum possible resources profit for a given investment with the given amount of resources.
+        """
+        resources_investible = min(agent_resources_available, self.resource_capacity)
+        return min(self.compute_payout(expenditure)[1] for expenditure in range(resources_investible + 1))
+
+    # def get_max_resource_profit
+
+    @property
+    def resources_until_payout(self) -> Payout:
+        return self.discharge_threshold - self.current_resources_invested
+
+    @property
+    def is_net_resource_positive(self):
+        return self.resource_discharge_amount > self.discharge_threshold
+
+    def __hash__(self):
+        return hash(self.id)
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)): return NotImplemented
+        return self.id == other.id
 
 
 @dataclass
@@ -101,7 +135,6 @@ class AgentV1:
     energetic_resources: int = 100
     expected_lifespan: int = 1000
 
-
 @dataclass
 class ResourcePath:
     resources_spent: int
@@ -109,4 +142,3 @@ class ResourcePath:
     reward_to_date: int
     investments_chosen: list[InvestmentV1]
     world_copy: list[InvestmentV1]
-    best_next_investments_by_resource_profit: dict[int, InvestmentV1]

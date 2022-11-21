@@ -1,1 +1,1 @@
-Payout = tuple[int, int, int]  # reward payout, resources payout, resources spent
+Payout = dict[str, int]  # reward payout, resources payout, resources spent
