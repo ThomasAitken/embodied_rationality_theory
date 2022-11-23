@@ -122,6 +122,58 @@ def compute_path_of_immediate_reward_maximisation(
         )
 
 
+def get_max_possible_resource_sum(investments: list[InvestmentV1], resources_now: int) -> int:
+    return resources_now + sum(i.resource_discharge_amount - i.resources_until_payout for i in investments)
+
+
+def is_resource_level_unreachable(
+    investments: list[InvestmentV1], resources_now: int, resource_level_to_reach: int, timesteps: int
+) -> list[InvestmentV1]:
+    """
+    This is useful for determining whether a given investment with discharge_threshold = resource_level_to_reach can
+    possibly be exploited before the end of the game.
+    A value of False doesn't always mean provably reachable since this is too expensive to compute (but True is
+    always correct).
+    """
+    if resource_level_to_reach <= resources_now:
+        return False
+
+    # only care about those investments that will recharge in time
+    temporally_available_investments = list(
+        filter(
+            lambda i: i.resource_capacity + i.capacity_recovery_rate * timesteps >= i.discharge_threshold, investments
+        )
+    )
+    if len(temporally_available_investments) < timesteps:
+        return True
+    investments_sorted_by_cheapness = sorted(investments, key=lambda i: i.discharge_threshold)
+    investments_sorted_by_resource_profit = sorted(
+        investments, key=lambda i: i.resource_discharge_amount - i.resources_until_payout, reverse=True
+    )
+    max_possible_sum = get_max_possible_resource_sum(investments_sorted_by_resource_profit[:timesteps], resources_now)
+    if max_possible_sum < resource_level_to_reach:
+        return True
+
+    start_idx = 0
+    cheapest_viable_investment_set = investments_sorted_by_cheapness[:timesteps]
+    while get_max_possible_resource_sum(cheapest_viable_investment_set, resources_now) < resource_level_to_reach:
+        cheapest_viable_investment_set = investments_sorted_by_cheapness[start_idx : timesteps + start_idx]
+        start_idx += 1
+    if (
+        cheapest_viable_investment_set[0].resources_until_payout > resources_now
+    ):  # can't even get the cheapest investment in one step
+        return True
+    return False
+
+
+def is_investment_discharge_unreachable(
+    resource_path: ResourcePath, investment: InvestmentV1, timesteps_remaining: int
+) -> bool:
+    return is_resource_level_unreachable(
+        resource_path.world_copy, resource_path.resources_to_spend, investment.discharge_threshold, timesteps_remaining
+    )
+
+
 def get_nondominated_consumption_choices(investment: InvestmentV1, resources: int):
     """
     Assume: we can't pay over the discharge threshold for a given investment.
@@ -166,7 +218,8 @@ def boundedly_optimise_max_investment(
                 )
             )
 
-    for _ in range(lookahead_steps):
+    for t in range(1, lookahead_steps):
+        timesteps_remaining = lookahead_steps - t
         new_resource_paths = []
         for r in resource_paths:
             if r.resources_to_spend == 0:  # agent is dead
@@ -179,6 +232,10 @@ def boundedly_optimise_max_investment(
                 r.world_copy, r.resources_to_spend
             )
             for investment in r.world_copy:
+                # determine if not enough time/resources to achieve discharge for given investment
+                if is_investment_discharge_unreachable(r, investment, timesteps_remaining - 1):
+                    continue
+
                 # fails reward lower bound
                 if (
                     investment.reward_discharge_amount < resource_max_reward_take
