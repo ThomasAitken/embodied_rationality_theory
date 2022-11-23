@@ -66,6 +66,17 @@ def select_max_investment_by_reward_minus_resources(
     return max_investment, reward_payout, resources_payout, resources_expended
 
 
+# def compute_path_of_immediate_reward_maximisation(
+#     resource_path: ResourcePath, timesteps_remaining: int
+# ) -> ResourcePath:
+#     for _ in range(timesteps_remaining):
+#         chosen_investment, payout = select_max_investment_by_reward_maximisation(resource_path.world_copy)
+#         chosen_investment_copy = copy(chosen_investment)
+#         chosen_investment_copy.update_values_post_discharge(
+#             payout["resources_spent"], payout["reward"], payout["resource_profit"]
+#         )
+
+
 def compute_min_reward_bound_by_resource_maxing(investments: list[InvestmentV1], resources: int) -> tuple[int, int]:
     """
     Returns the amount of reward obtained by choosing the investment that maximises resource profit.
@@ -109,17 +120,6 @@ def get_best_investments_by_resource_profit(
         )
         resource_to_selection_map[r] = max(investment_and_payouts_given_resource_constraints, lambda p: p[1])
     return resource_to_selection_map
-
-
-def compute_path_of_immediate_reward_maximisation(
-    resource_path: ResourcePath, timesteps_remaining: int
-) -> ResourcePath:
-    for _ in range(timesteps_remaining):
-        chosen_investment, payout = select_max_investment_by_reward_maximisation(resource_path.world_copy)
-        chosen_investment_copy = copy(chosen_investment)
-        chosen_investment_copy.update_values_post_discharge(
-            payout["resources_spent"], payout["reward"], payout["resource_profit"]
-        )
 
 
 def get_max_possible_resource_sum(investments: list[InvestmentV1], resources_now: int) -> int:

@@ -4,6 +4,8 @@ from typing import Literal
 
 from dataclasses_json import dataclass_json
 
+from .simulate import simulate
+
 parser = argparse.ArgumentParser()
 
 subparsers = parser.add_subparsers(help="Action commands", dest="command")
@@ -19,6 +21,9 @@ simulate_cmd.add_argument(
     type=str,
     choices={"deterministic", "mean_variance", "total"},
     help="The class of model to simulate",
+)
+simulate_cmd.add_argument(
+    "-v", "--version", dest="version", type=str, choices={"v1, v2"}, help="The version of the model to simulate"
 )
 simulate_cmd.add_argument(
     "-s", "--seed", dest="seed", type=str, help="JSON format seed for investment. See cli.py file to understand."
@@ -43,5 +48,8 @@ class InvestmentSeed:
     resources_sampling_kurtosis: Literal["low", "medium", "high"]
 
 
-if __name__ == "main":
-    pass
+def main():
+    args = parser.parse_args()
+    if args.command == "simulate":
+        simulate_args = simulate_cmd.parse_args()
+        simulate(simulate_args)
