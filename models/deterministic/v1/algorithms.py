@@ -1,3 +1,4 @@
+import logging
 from copy import copy
 from typing import TYPE_CHECKING
 
@@ -5,6 +6,8 @@ from models.deterministic.utils import update_investments
 
 if TYPE_CHECKING:
     from .classes import InvestmentV1, OtherEnvironmentalFactors, Payout, ResourcePath
+
+logger = logging.getLogger(__name__)
 
 # max_investment, reward_payout, resources_payout, resources_expended
 InvestmentSelection = tuple[InvestmentV1, dict[str, int]]
@@ -64,17 +67,6 @@ def select_max_investment_by_reward_minus_resources(
     )  # maximise weighted average of reward/resources with weights given by "reward_bias"
     reward_payout, resources_payout, resources_expended = max_investment.compute_payout(resources)
     return max_investment, reward_payout, resources_payout, resources_expended
-
-
-# def compute_path_of_immediate_reward_maximisation(
-#     resource_path: ResourcePath, timesteps_remaining: int
-# ) -> ResourcePath:
-#     for _ in range(timesteps_remaining):
-#         chosen_investment, payout = select_max_investment_by_reward_maximisation(resource_path.world_copy)
-#         chosen_investment_copy = copy(chosen_investment)
-#         chosen_investment_copy.update_values_post_discharge(
-#             payout["resources_spent"], payout["reward"], payout["resource_profit"]
-#         )
 
 
 def compute_min_reward_bound_by_resource_maxing(investments: list[InvestmentV1], resources: int) -> tuple[int, int]:
@@ -208,13 +200,17 @@ def boundedly_optimise_max_investment(
             investment_copy.update_values_post_discharge(
                 choice["resources_spent"], choice["reward"], choice["resource_profit"]
             )
+            resources_to_spend = resources + choice["resource_profit"]
+            reward_to_date = choice["reward"]
             resource_paths.append(
                 ResourcePath(
                     resources_spent=choice["resource_spent"],
-                    resources_to_spend=resources + choice["resource_profit"],
-                    reward_to_date=choice["reward"],
+                    resources_to_spend=resources_to_spend,
+                    reward_to_date=reward_to_date,
                     investments_chosen=[investment_copy.id],
                     world_copy=[investment_copy],
+                    resource_level_at_each_step=resources_to_spend,
+                    reward_level_at_each_step=reward_to_date,
                 )
             )
 
@@ -231,9 +227,11 @@ def boundedly_optimise_max_investment(
             resource_max_reward_take, resource_max_resource_take = compute_min_reward_bound_by_resource_maxing(
                 r.world_copy, r.resources_to_spend
             )
+            num_investments_pruned = 0
             for investment in r.world_copy:
                 # determine if not enough time/resources to achieve discharge for given investment
                 if is_investment_discharge_unreachable(r, investment, timesteps_remaining - 1):
+                    num_investments_pruned += 1
                     continue
 
                 # fails reward lower bound
@@ -241,13 +239,17 @@ def boundedly_optimise_max_investment(
                     investment.reward_discharge_amount < resource_max_reward_take
                     and investment.resource_discharge_amount <= resource_max_resource_take
                 ):
+                    num_investments_pruned += 1
                     continue
                 # fails resource lower bound
                 if (
                     investment.resource_discharge_amount < reward_max_resource_take
                     and investment.reward_discharge_amount <= reward_max_reward_take
                 ):
+                    num_investments_pruned += 1
                     continue
+
+                logger.debug(f"Num investments pruned for investment {investment.id}: {num_investments_pruned}")
 
                 investment_copy = copy(investment)
                 for choice in get_nondominated_consumption_choices(investment_copy, r.resources_to_spend):
@@ -261,13 +263,17 @@ def boundedly_optimise_max_investment(
                     ]
                     update_investments(world_copy_copy)
 
+                    resources_to_spend = r.resources_to_spend + choice["resource_profit"]
+                    reward_to_date = r.reward_to_date + choice["reward"]
                     new_resource_paths.append(
                         ResourcePath(
                             resources_spent=r.resources_spent + choice["resources_spent"],
-                            resources_to_spend=r.resources_to_spend + choice["resource_profit"],
-                            reward_to_date=r.reward_to_date + choice["reward"],
+                            resources_to_spend=resources_to_spend,
+                            reward_to_date=reward_to_date,
                             investments_chosen=r.investments_chosen + [investment_copy.id],
                             world_copy=world_copy_copy,
+                            resource_level_at_each_step=r.resource_level_at_each_step + [r.resources_to_spend],
+                            reward_level_at_each_step=r.reward_level_at_each_step + [reward_to_date],
                         )
                     )
         resource_paths = new_resource_paths

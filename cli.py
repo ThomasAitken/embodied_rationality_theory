@@ -1,9 +1,10 @@
-import random
 from dataclasses import dataclass
 from typing import Literal
 
 from dataclasses_json import dataclass_json
 from typed_argparse import Parser, TypedArgs, arg
+
+from models.deterministic.simulate import simulate as simulate_deterministic
 
 
 @dataclass
@@ -23,57 +24,32 @@ class StochasticInvestmentSeed:
     resources_sampling_kurtosis: Literal["low", "medium", "high"]
 
 
-LOW_ABUNDANCE_MEAN = 100
-MEDIUM_ABUNDANCE_MEAN = 200
-HIGH_ABUNDANCE_MEAN = 400
-
-LOW_SD = 1
-MEDIUM_SD = 10
-HIGH_SD = 20
-
-LOW_STARTING_RESOURCES = 333
-MEDIUM_STARTING_RESOURCES = 666
-HIGH_STARTING_RESOURCES = 999
-
-
-@dataclass_json
-@dataclass
-class DeterministicEnvironmentSeed:
-    resource_abundance: Literal["low", "medium", "high"]
-    resource_variance: Literal["low", "medium", "high"]
-    reward_abundance: Literal["low", "medium", "high"]
-    reward_variance: Literal["low", "medium", "high"]
-    num_investments: Literal["low", "medium", "high"]
-    agent_starting_resources: Literal["low", "medium", "high"]
-
-
 class Args(TypedArgs):
+    class_: Literal["deterministic", "mean_variance", "total"] = arg("class", help="The class of model to simulate")
+    version: Literal["v1", "v2"] = arg("version", help="The version of the model to simulate")
+    agent_starting_resources: int = arg("resources", help="The agent's starting resources")
+    num_investments: int = arg("investments", help="The number of investments in the world")
+    num_timesteps: int = arg("timesteps", help="The number of timesteps in the simulation")
     verbose: bool = arg("-v", "--verbose", help="Print DEBUG level logs.")
-    class_: Literal["deterministic", "mean_variance", "total"] = arg(
-        "-c",
-        "--class",
-        help="The class of model to simulate",
-    )
-    version: Literal["v1", "v2"] = arg("-w", "--version", help="The version of the model to simulate")
     seed: str = arg("-s", "--seed", help="JSON format seed for investment. See cli.py file to understand.")
-    # TODO: add args plot_data, export_data, compare_algorithms
+    plot: bool = arg("-p", "--plot", help="Plot the data")
+    algorithms: list[Literal["optimal"]] = arg("--algorithms", help="Plot the result of each of these algorithms")
+    # TODO: add args export_data
 
 
 def simulate(args: Args):
     # Currently assuming _class="deterministic" and version="version"
     #  TODO: extend
-    if args.seed is not None:
-        seed = DeterministicEnvironmentSeed.from_json(args.seed)
-    else:
-        seed = DeterministicEnvironmentSeed(
-            resource_abundance="medium",
-            resource_variance="medium",
-            reward_abundance="medium",
-            reward_variance="medium",
-            num_investments="medium",
-            agent_starting_resources="medium",
+
+    if args.class_ == "deterministic" and args.version == "v1":
+        simulate_deterministic(
+            args.agent_starting_resources,
+            args.num_investments,
+            args.num_timesteps,
+            args.seed,
+            args.plot,
+            args.algorithms,
         )
-    # random.normalvariate
 
     # print(args)
 

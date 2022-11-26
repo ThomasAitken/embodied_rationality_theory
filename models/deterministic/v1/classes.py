@@ -70,11 +70,7 @@ class InvestmentV1:
         reward_payout = self.reward_discharge_amount if discharge_reached else 0
         resource_payout = self.resource_discharge_amount if discharge_reached else 0
         resource_profit = resource_payout - resources_expended
-        return {
-            "reward": reward_payout,
-            "resource_profit": resource_profit,
-            "resources_spent": resources_expended
-        }
+        return {"reward": reward_payout, "resource_profit": resource_profit, "resources_spent": resources_expended}
 
     def update_values_post_discharge(self, resources_invested: int, reward_payout: int, resources_profit: int):
         """
@@ -82,7 +78,7 @@ class InvestmentV1:
         """
         self.resource_capacity -= resources_invested
         self._total_reward_discharged -= reward_payout
-        self._total_resources_discharged -= (resources_profit + resources_invested)
+        self._total_resources_discharged -= resources_profit + resources_invested
 
     def get_payout_given_resource_parameters(
         self, agent_resources_available: int, resources_profit: int
@@ -115,8 +111,14 @@ class InvestmentV1:
         return hash(self.id)
 
     def __eq__(self, other):
-        if not isinstance(other, type(self)): return NotImplemented
+        if not isinstance(other, type(self)):
+            return NotImplemented
         return self.id == other.id
+
+    def __repr__(self):
+        print(
+            f"Id: {self.id}, Name: {self.name}, Discharge threshold: {self.discharge_threshold}, Reward discharge amount: {self.reward_discharge_amount}, Resource discharge amount: {self.resource_discharge_amount}, Capacity Recovery Rate: {self.capacity_recovery_rate}, Resource capacity: {self.resource_capacity}, Current Resources Invested: {self.current_resources_invested}"
+        )
 
 
 @dataclass
@@ -135,6 +137,7 @@ class AgentV1:
     energetic_resources: int = 100
     expected_lifespan: int = 1000
 
+
 @dataclass
 class ResourcePath:
     resources_spent: int
@@ -142,3 +145,11 @@ class ResourcePath:
     reward_to_date: int
     investments_chosen: list[InvestmentV1]
     world_copy: list[InvestmentV1]
+    # fields for plotting
+    resource_level_at_each_step: list[int]
+    reward_level_at_each_step: list[int]
+
+    def __repr__(self):
+        print(
+            f"Resources spent: {self.resources_spent}, Resources to spend: {self.resources_to_spend}, Reward to date: {self.reward_to_date}"
+        )
