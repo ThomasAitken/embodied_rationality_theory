@@ -1,7 +1,5 @@
 from dataclasses import dataclass
 
-from models.deterministic.types import Payout
-
 
 class InvestmentV1:
     """
@@ -51,17 +49,10 @@ class InvestmentV1:
         self.resource_capacity = discharge_threshold
         self.capacity_recovery_rate = capacity_recovery_rate
         self.current_resources_invested = 0
-        self._total_resources_discharged = 0
+        self._total_reward_discharged = 0
         self._total_resources_discharged = 0
 
-    def compute_payout(self, added_resources: int = 0) -> Payout:
-        """
-        Returns three values:\
-            1.) the reward payout to be discharged at a given point in time;
-            2.) the resources profit to be discharged at a given point in time;
-            3.) the resources, of the "added_resources", actually spent by the agent.
-        """
-
+    def compute_payout(self, added_resources: int = 0):
         resources_expended = 0
         if added_resources != 0:
             resources_expended = min(added_resources, self.resource_capacity)
@@ -70,19 +61,28 @@ class InvestmentV1:
         reward_payout = self.reward_discharge_amount if discharge_reached else 0
         resource_payout = self.resource_discharge_amount if discharge_reached else 0
         resource_profit = resource_payout - resources_expended
-        return {"reward": reward_payout, "resource_profit": resource_profit, "resources_spent": resources_expended}
+        return {
+            "discharge_reached": discharge_reached,
+            "reward": reward_payout,
+            "resource_profit": resource_profit,
+            "resources_spent": resources_expended,
+        }
 
-    def update_values_post_discharge(self, resources_invested: int, reward_payout: int, resources_profit: int):
+    def update_values_post_investment(
+        self, discharge_reached: bool, resources_invested: int, reward_payout: int, resources_profit: int
+    ):
         """
         Executed after a reward/resource discharge.
         """
+        if discharge_reached:
+            self.current_resources_invested = 0
+        else:
+            self.current_resources_invested += resources_invested
         self.resource_capacity -= resources_invested
         self._total_reward_discharged -= reward_payout
         self._total_resources_discharged -= resources_profit + resources_invested
 
-    def get_payout_given_resource_parameters(
-        self, agent_resources_available: int, resources_profit: int
-    ) -> Payout | None:
+    def get_payout_given_resource_parameters(self, agent_resources_available: int, resources_profit: int):
         resources_investible = min(agent_resources_available, self.resource_capacity)
         for possible_expenditure in range(resources_investible + 1):
             possible_payout = self.compute_payout(possible_expenditure)
@@ -99,8 +99,11 @@ class InvestmentV1:
 
     # def get_max_resource_profit
 
+    def get_resources_until_payout_post_injection(self, resources_invested: int) -> int:
+        return self.discharge_threshold - (self.current_resources_invested + resources_invested)
+
     @property
-    def resources_until_payout(self) -> Payout:
+    def resources_until_payout(self) -> int:
         return self.discharge_threshold - self.current_resources_invested
 
     @property
@@ -115,10 +118,8 @@ class InvestmentV1:
             return NotImplemented
         return self.id == other.id
 
-    def __repr__(self):
-        print(
-            f"Id: {self.id}, Name: {self.name}, Discharge threshold: {self.discharge_threshold}, Reward discharge amount: {self.reward_discharge_amount}, Resource discharge amount: {self.resource_discharge_amount}, Capacity Recovery Rate: {self.capacity_recovery_rate}, Resource capacity: {self.resource_capacity}, Current Resources Invested: {self.current_resources_invested}"
-        )
+    def __str__(self):
+        return f"Id: {self.id}, Name: {self.name}, Discharge threshold: {self.discharge_threshold}, Reward discharge amount: {self.reward_discharge_amount}, Resource discharge amount: {self.resource_discharge_amount}, Capacity Recovery Rate: {self.capacity_recovery_rate}, Resource capacity: {self.resource_capacity}, Current Resources Invested: {self.current_resources_invested}"
 
 
 @dataclass
@@ -143,13 +144,11 @@ class ResourcePath:
     resources_spent: int
     resources_to_spend: int
     reward_to_date: int
-    investments_chosen: list[InvestmentV1]
+    investments_chosen: list[str]
     world_copy: list[InvestmentV1]
     # fields for plotting
     resource_level_at_each_step: list[int]
     reward_level_at_each_step: list[int]
 
     def __repr__(self):
-        print(
-            f"Resources spent: {self.resources_spent}, Resources to spend: {self.resources_to_spend}, Reward to date: {self.reward_to_date}"
-        )
+        return f"Resources spent: {self.resources_spent}, Resources to spend: {self.resources_to_spend}, Reward to date: {self.reward_to_date}"

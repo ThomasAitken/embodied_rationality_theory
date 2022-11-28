@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from typing import Literal
 
@@ -25,21 +26,27 @@ class StochasticInvestmentSeed:
 
 
 class Args(TypedArgs):
-    class_: Literal["deterministic", "mean_variance", "total"] = arg("class", help="The class of model to simulate")
-    version: Literal["v1", "v2"] = arg("version", help="The version of the model to simulate")
-    agent_starting_resources: int = arg("resources", help="The agent's starting resources")
-    num_investments: int = arg("investments", help="The number of investments in the world")
-    num_timesteps: int = arg("timesteps", help="The number of timesteps in the simulation")
+    class_: Literal["deterministic", "mean_variance", "total"] = arg(
+        "class", positional=True, help="The class of model to simulate"
+    )
+    version: Literal["v1", "v2"] = arg("version", positional=True, help="The version of the model to simulate")
+    agent_starting_resources: int = arg("resources", positional=True, help="The agent's starting resources")
+    num_investments: int = arg("investments", positional=True, help="The number of investments in the world")
+    num_timesteps: int = arg("timesteps", positional=True, help="The number of timesteps in the simulation")
     verbose: bool = arg("-v", "--verbose", help="Print DEBUG level logs.")
-    seed: str = arg("-s", "--seed", help="JSON format seed for investment. See cli.py file to understand.")
-    plot: bool = arg("-p", "--plot", help="Plot the data")
-    algorithms: list[Literal["optimal"]] = arg("--algorithms", help="Plot the result of each of these algorithms")
+    seed: str = arg("-s", "--seed", default="", help="JSON format seed for investment. See cli.py file to understand.")
+    plot: bool = arg("-p", "--plot", default=False, help="Plot the data")
+    algorithms: list[Literal["optimal"]] = arg(
+        "--algorithms", default=[], help="Plot the result of each of these algorithms"
+    )
     # TODO: add args export_data
 
 
 def simulate(args: Args):
     # Currently assuming _class="deterministic" and version="version"
     #  TODO: extend
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
 
     if args.class_ == "deterministic" and args.version == "v1":
         simulate_deterministic(
@@ -56,6 +63,3 @@ def simulate(args: Args):
 
 if __name__ == "__main__":
     args = Parser(Args).bind(simulate).run()
-    # if args.command == "simulate":
-    #     simulate_args = simulate_cmd.parse_args()
-    #     simulate(simulate_args)

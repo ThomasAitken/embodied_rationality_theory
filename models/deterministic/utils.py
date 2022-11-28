@@ -1,9 +1,6 @@
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from .algorithms import ResourcePath
-    from .classes import InvestmentV1
-
+from models.deterministic.v1.classes import InvestmentV1
 
 ResourceGainBoundsList = list[dict[str, list[tuple[int, int]]]]
 
@@ -49,9 +46,9 @@ def get_resource_gain_bounds(investments: list[InvestmentV1], resources: int) ->
         )
     return resource_gain_bounds
 
-def get_all_possible_worlds_where_given_resource_profit_is_possible(resource_profit: int, list[ResourcePath]) -> list[ResourcePath]:
-    pass
 
+# def get_all_possible_worlds_where_given_resource_profit_is_possible(resource_profit: int, list[ResourcePath]) -> list[ResourcePath]:
+#     pass
 
 
 def update_investments(investments: list[InvestmentV1]):
@@ -59,6 +56,7 @@ def update_investments(investments: list[InvestmentV1]):
     Updates resource capacity of investments at end of time step.
     """
     for investment in investments:
-        investment.resource_capacity += int(investment.capacity_recovery_rate)
-
-
+        if investment.resource_capacity + investment.capacity_recovery_rate > investment.discharge_threshold:
+            investment.resource_capacity = investment.discharge_threshold
+        else:
+            investment.resource_capacity += investment.capacity_recovery_rate
