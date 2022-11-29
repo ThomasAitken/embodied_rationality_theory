@@ -1,9 +1,10 @@
 import logging
 from copy import copy
+from typing import Optional
 
 from models.deterministic.utils import update_investments
 
-from .classes import InvestmentV1, OtherEnvironmentalFactors, ResourcePath
+from .classes import InvestmentV1, OtherEnvironmentalFactors, Payout, ResourcePath
 
 logger = logging.getLogger(__name__)
 
@@ -164,12 +165,25 @@ def is_investment_discharge_unreachable(
     )
 
 
-def update_best_result_so_far(max_choice, investment, best_discharge_result, best_latent_result):
+# using Optional as "| None" syntax bugs out here https://github.com/python/mypy/issues/11098
+DischargeResult = Optional[tuple[int, int]]
+LatentResult = Optional[tuple[int, int, int]]
+
+
+def update_best_result_so_far(
+    max_choice: Payout,
+    investment: InvestmentV1,
+    best_discharge_result: DischargeResult,
+    best_latent_result: LatentResult,
+    is_last_timestep: bool,
+) -> tuple[DischargeResult, LatentResult] | None:
     """
     Takes the highest-return choice of resource-expenditure for a given investment and determines if there is another choice for
     some other investment that dominates it in the current resource path.
     If max_choice is dominated, return None.
-    Else return updated values for best_discharge_result and best_latent_result.
+    Otherwise return updated values for best_discharge_result and best_latent_result.
+
+    If we are on the last timestep, we ignore resources
     """
     if max_choice["discharge_reached"]:
         if best_discharge_result is None:
@@ -177,21 +191,21 @@ def update_best_result_so_far(max_choice, investment, best_discharge_result, bes
             return best_discharge_result, best_latent_result
 
         # existing best choice dominates
-        if max_choice["reward"] < best_discharge_result[0] and max_choice["resource_profit"] < best_discharge_result[1]:
+        if max_choice["reward"] < best_discharge_result[0] and (
+            max_choice["resource_profit"] < best_discharge_result[1] or is_last_timestep
+        ):
             return None
 
         # new choice is new best
-        if (
-            max_choice["reward"] >= best_discharge_result[0]
-            and max_choice["resource_profit"] >= best_discharge_result[1]
+        if max_choice["reward"] >= best_discharge_result[0] and (
+            max_choice["resource_profit"] >= best_discharge_result[1] or is_last_timestep
         ):
             best_discharge_result = (max_choice["reward"], max_choice["resource_profit"])
     else:
         if best_discharge_result is not None:
             # best discharge result is better than this latent result
-            if (
-                investment.reward_discharge_amount < best_discharge_result[0]
-                and investment.resource_discharge_amount < best_discharge_result[1]
+            if investment.reward_discharge_amount < best_discharge_result[0] and (
+                investment.resource_discharge_amount < best_discharge_result[1] or is_last_timestep
             ):
                 return None
 
@@ -207,18 +221,22 @@ def update_best_result_so_far(max_choice, investment, best_discharge_result, bes
             return best_discharge_result, best_latent_result
 
         # existing best choice dominates
-        if (
-            investment.reward_discharge_amount < best_latent_result[0]
-            and investment.resource_discharge_amount < best_latent_result[1]
-            and resources_until_payout_post_injection > best_latent_result[2]
+        if investment.reward_discharge_amount < best_latent_result[0] and (
+            (
+                investment.resource_discharge_amount < best_latent_result[1]
+                and resources_until_payout_post_injection > best_latent_result[2]
+            )
+            or is_last_timestep
         ):
             return None
 
         # new choice is new best
-        if (
-            investment.reward_discharge_amount >= best_latent_result[0]
-            and investment.resource_discharge_amount >= best_latent_result[1]
-            and resources_until_payout_post_injection <= best_latent_result[2]
+        if investment.reward_discharge_amount >= best_latent_result[0] and (
+            (
+                investment.resource_discharge_amount >= best_latent_result[1]
+                and resources_until_payout_post_injection <= best_latent_result[2]
+            )
+            or is_last_timestep
         ):
             best_latent_result = (
                 investment.reward_discharge_amount,
@@ -262,7 +280,9 @@ def boundedly_optimise_max_investment(
     for investment in investments:
         nondominated_consumption_choices = get_nondominated_consumption_choices(investment, resources)
         max_choice = max(nondominated_consumption_choices, key=lambda c: (c["reward"], c["resource_profit"]))
-        best_results = update_best_result_so_far(max_choice, investment, best_discharge_result, best_latent_result)
+        best_results = update_best_result_so_far(
+            max_choice, investment, best_discharge_result, best_latent_result, lookahead_steps == 1
+        )
         if best_results is None:
             # logging.debug(f"Investment {investment.id} dominated on timestep 0")
             continue
@@ -292,6 +312,7 @@ def boundedly_optimise_max_investment(
     # logging.debug(resource_paths[-1])
 
     for t in range(1, lookahead_steps):
+        # timesteps to go including the current timestep
         timesteps_remaining = lookahead_steps - t
         new_resource_paths = []
         print(f"ITERATION {t}")
@@ -334,7 +355,7 @@ def boundedly_optimise_max_investment(
                 nondominated_consumption_choices = get_nondominated_consumption_choices(investment, resources)
                 max_choice = max(nondominated_consumption_choices, key=lambda c: (c["reward"], c["resource_profit"]))
                 best_results = update_best_result_so_far(
-                    max_choice, investment, best_discharge_result, best_latent_result
+                    max_choice, investment, best_discharge_result, best_latent_result, t == lookahead_steps - 1
                 )
                 if best_results is None:
                     # logging.debug(f"Investment {investment.id} dominated on timestep {t}")

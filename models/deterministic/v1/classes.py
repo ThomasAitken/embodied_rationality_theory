@@ -1,15 +1,23 @@
 from dataclasses import dataclass
+from typing import TypedDict
+
+
+class Payout(TypedDict):
+    discharge_reached: bool
+    reward: int
+    resource_profit: int
+    resources_spent: int
 
 
 class InvestmentV1:
     """
-    A thing in the environment into which an agent invests resources (energetic and instrumental), from which the agent
-    expects to receive reward from their total investment according to the given "resources_to_reward" method and/or
-    additional resources according to the given "resources_to_resources" method. These payouts are given according to a
-    schedule operating on a fixed period (specified by the "reward_period" parameter). The payouts discharge all
-    reward/resources accrued in the investment. The relationship between the level of investment and the payout is
-    specified by the methods "resources_to_reward" and "resources_to_resources". For now, these generate payout
-    deterministically; we will introduce stochasticity later.
+    A thing in the environment into which an agent invests resources, from which the agent expects to receive reward
+    from their total investment according to the given "resources_to_reward" method and/or additional resources according
+    to the given "resources_to_resources" method. These payouts are given according to a schedule operating on a fixed
+    period (specified by the "reward_period" parameter). The payouts discharge all reward/resources accrued in the
+    investment. The relationship between the level of investment and the payout is specified by the methods
+    "resources_to_reward" and "resources_to_resources". For now, these generate payout deterministically; we will
+    introduce stochasticity later.
 
     Each investment can only accept so many resources at a given time, as determined by the "resource_capacity".
     This capacity then recovers according to the parameter "capacity_recovery_rate"
@@ -52,7 +60,7 @@ class InvestmentV1:
         self._total_reward_discharged = 0
         self._total_resources_discharged = 0
 
-    def compute_payout(self, added_resources: int = 0):
+    def compute_payout(self, added_resources: int = 0) -> Payout:
         resources_expended = 0
         if added_resources != 0:
             resources_expended = min(added_resources, self.resource_capacity)
@@ -61,12 +69,12 @@ class InvestmentV1:
         reward_payout = self.reward_discharge_amount if discharge_reached else 0
         resource_payout = self.resource_discharge_amount if discharge_reached else 0
         resource_profit = resource_payout - resources_expended
-        return {
-            "discharge_reached": discharge_reached,
-            "reward": reward_payout,
-            "resource_profit": resource_profit,
-            "resources_spent": resources_expended,
-        }
+        return Payout(
+            discharge_reached=discharge_reached,
+            reward=reward_payout,
+            resource_profit=resource_profit,
+            resources_spent=resources_expended,
+        )
 
     def update_values_post_investment(
         self, discharge_reached: bool, resources_invested: int, reward_payout: int, resources_profit: int
