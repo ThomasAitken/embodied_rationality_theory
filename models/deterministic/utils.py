@@ -1,11 +1,11 @@
 from typing import TYPE_CHECKING
 
-from models.deterministic.v1.classes import InvestmentV1
+from models.deterministic.minimal.classes import InvestmentMinimal
 
 ResourceGainBoundsList = list[dict[str, list[tuple[int, int]]]]
 
 
-def get_max_possible_resources(investments: list[InvestmentV1], resources: int) -> int:
+def get_max_possible_resources(investments: list[InvestmentMinimal], resources: int) -> int:
     """
     Finds the highest resource profit that can be made from the given options.
     """
@@ -14,7 +14,7 @@ def get_max_possible_resources(investments: list[InvestmentV1], resources: int) 
     return max_resources
 
 
-# def get_min_resource_gains(investments: list[InvestmentV1], resources: int) -> ResourceGainList:
+# def get_min_resource_gains(investments: list[InvestmentMinimal], resources: int) -> ResourceGainList:
 #     min_resource_gains: ResourceGainList = []
 #     for investment in investments:
 #         invest_id = investment.id
@@ -24,7 +24,7 @@ def get_max_possible_resources(investments: list[InvestmentV1], resources: int) 
 #     return min_resource_gains
 
 
-# def get_max_resource_gains(investments: list[InvestmentV1], resources: int) -> ResourceGainList:
+# def get_max_resource_gains(investments: list[InvestmentMinimal], resources: int) -> ResourceGainList:
 #     max_resource_gains: ResourceGainList = []
 #     for investment in investments:
 #         invest_id = investment.id
@@ -34,7 +34,7 @@ def get_max_possible_resources(investments: list[InvestmentV1], resources: int) 
 #     return max_resource_gains
 
 
-def get_resource_gain_bounds(investments: list[InvestmentV1], resources: int) -> ResourceGainBoundsList:
+def get_resource_gain_bounds(investments: list[InvestmentMinimal], resources: int) -> ResourceGainBoundsList:
     resource_gain_bounds: ResourceGainBoundsList = []
     for investment in investments:
         invest_id = investment.id
@@ -51,7 +51,7 @@ def get_resource_gain_bounds(investments: list[InvestmentV1], resources: int) ->
 #     pass
 
 
-def update_investments(investments: list[InvestmentV1]):
+def update_investments(investments: list[InvestmentMinimal]):
     """
     Updates resource capacity of investments at end of time step.
     """

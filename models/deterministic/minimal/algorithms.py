@@ -4,21 +4,17 @@ from typing import Optional
 
 from models.deterministic.utils import update_investments
 
-from .classes import InvestmentV1, OtherEnvironmentalFactors, Payout, ResourcePath
+from .classes import InvestmentMinimal, Payout, ResourcePath
 
 logger = logging.getLogger(__name__)
 
 # max_investment, reward_payout, resources_payout, resources_expended
-InvestmentSelection = tuple[InvestmentV1, dict[str, int]]
-
-
-def adjust_payout_for_environment(environment: OtherEnvironmentalFactors):
-    pass
+InvestmentSelection = tuple[InvestmentMinimal, int, int, int]
 
 
 def select_max_investment_by_reward_maximisation(
-    investments: list[InvestmentV1], resources: int
-) -> InvestmentSelection:
+    investments: list[InvestmentMinimal], resources: int
+) -> tuple[InvestmentMinimal, Payout]:
     """
     Finds the selection that maximises reward. If there is more than one, finds the one with the highest resource profit.
     """
@@ -26,7 +22,7 @@ def select_max_investment_by_reward_maximisation(
     max_reward = max(map(lambda x: x[1]["reward"], investments_with_payouts))
     # select investment with max reward and highest net resources
     max_investment = max(
-        filter(lambda x: x[1][0] == max_reward, investments_with_payouts),
+        filter(lambda x: x[1]["reward"] == max_reward, investments_with_payouts),
         key=lambda x: x[1]["resource_profit"],
     )
     investment, payout = max_investment
@@ -34,7 +30,7 @@ def select_max_investment_by_reward_maximisation(
 
 
 def select_max_investment_by_reward_over_resources_profit(
-    investments: list[InvestmentV1], resources: int
+    investments: list[InvestmentMinimal], resources: int
 ) -> InvestmentSelection:
     max_investment = max(
         investments,
@@ -45,7 +41,7 @@ def select_max_investment_by_reward_over_resources_profit(
 
 
 def select_max_investment_by_fixed_tradeoff_heuristic(
-    investments: list[InvestmentV1], resources: int, reward_bias: float
+    investments: list[InvestmentMinimal], resources: int, reward_bias: float
 ) -> InvestmentSelection:
     max_investment = max(
         investments,
@@ -56,19 +52,9 @@ def select_max_investment_by_fixed_tradeoff_heuristic(
     return max_investment, reward_payout, resources_payout, resources_expended
 
 
-def select_max_investment_by_reward_minus_resources(
-    investments: list[InvestmentV1], resources: int, reward_bias: float
-) -> InvestmentSelection:
-    max_investment = max(
-        investments,
-        key=lambda x: reward_bias * x.compute_payout(resources)["reward"]
-        + (1 - reward_bias) * x.compute_payout(resources)["resource_profit"],
-    )  # maximise weighted average of reward/resources with weights given by "reward_bias"
-    reward_payout, resources_payout, resources_expended = max_investment.compute_payout(resources)
-    return max_investment, reward_payout, resources_payout, resources_expended
-
-
-def compute_min_reward_bound_by_resource_maxing(investments: list[InvestmentV1], resources: int) -> tuple[int, int]:
+def compute_min_reward_bound_by_resource_maxing(
+    investments: list[InvestmentMinimal], resources: int
+) -> tuple[int, int]:
     """
     Returns the amount of reward obtained by choosing the investment that maximises resource profit.
     This serves as a lower bound requirement for a given investment selection decision. If the resource discharge amount
@@ -82,7 +68,9 @@ def compute_min_reward_bound_by_resource_maxing(investments: list[InvestmentV1],
     return payout["reward"], payout["resource_profit"]
 
 
-def compute_min_resource_bound_by_reward_maxing(investments: list[InvestmentV1], resources: int) -> tuple[int, int]:
+def compute_min_resource_bound_by_reward_maxing(
+    investments: list[InvestmentMinimal], resources: int
+) -> tuple[int, int]:
     """
     Returns the amount of resources obtained by choosing the investment that maximises reward.
     This serves as a lower bound requirement for a given investment selection decision. If the reward discharge amount
@@ -93,32 +81,32 @@ def compute_min_resource_bound_by_reward_maxing(investments: list[InvestmentV1],
     return payout["resource_profit"], payout["reward"]
 
 
-def get_best_investments_by_resource_profit(
-    investments: list[InvestmentV1], agent_resources: int, min_profit, max_profit
-) -> dict[int, tuple[InvestmentV1, int]]:
-    """
-    Returns a map of investments that get the highest reward by each possible level of resource profit.
-    """
-    resource_to_selection_map = {}
-    for r in range(min_profit, max_profit + 1):
-        investment_and_payouts_given_resource_constraints = [
-            (investment, investment.get_payout_given_resource_parameters(agent_resources, r)[0])
-            for investment in investments
-        ]
-        investment_and_payouts_given_resource_constraints = filter(
-            lambda i: i[1] is not None,
-            investment_and_payouts_given_resource_constraints,
-        )
-        resource_to_selection_map[r] = max(investment_and_payouts_given_resource_constraints, lambda p: p[1])
-    return resource_to_selection_map
+# def get_best_investments_by_resource_profit(
+#     investments: list[InvestmentMinimal], agent_resources: int, min_profit, max_profit
+# ) -> dict[int, tuple[InvestmentMinimal, int]]:
+#     """
+#     Returns a map of investments that get the highest reward by each possible level of resource profit.
+#     """
+#     resource_to_selection_map = {}
+#     for r in range(min_profit, max_profit + 1):
+#         investment_and_payouts_given_resource_constraints = [
+#             (investment, investment.get_payout_given_resource_parameters(agent_resources, r)[0])
+#             for investment in investments
+#         ]
+#         investment_and_payouts_given_resource_constraints = filter(
+#             lambda i: i["resource_profit"] is not None,
+#             investment_and_payouts_given_resource_constraints,
+#         )
+#         resource_to_selection_map[r] = max(investment_and_payouts_given_resource_constraints, lambda p: p[1])
+#     return resource_to_selection_map
 
 
-def get_max_possible_resource_sum(investments: list[InvestmentV1], resources_now: int) -> int:
+def get_max_possible_resource_sum(investments: list[InvestmentMinimal], resources_now: int) -> int:
     return resources_now + sum(i.resource_discharge_amount - i.resources_until_payout for i in investments)
 
 
 def is_resource_level_unreachable(
-    investments: list[InvestmentV1], resources_now: int, resource_level_to_reach: int, timesteps: int
+    investments: list[InvestmentMinimal], resources_now: int, resource_level_to_reach: int, timesteps: int
 ) -> bool:
     """
     This is useful for determining whether a given investment with discharge_threshold = resource_level_to_reach can
@@ -158,7 +146,7 @@ def is_resource_level_unreachable(
 
 
 def is_investment_discharge_unreachable(
-    resource_path: ResourcePath, investment: InvestmentV1, timesteps_remaining: int
+    resource_path: ResourcePath, investment: InvestmentMinimal, timesteps_remaining: int
 ) -> bool:
     return is_resource_level_unreachable(
         resource_path.world_copy, resource_path.resources_to_spend, investment.discharge_threshold, timesteps_remaining
@@ -172,7 +160,7 @@ LatentResult = Optional[tuple[int, int, int]]
 
 def update_best_result_so_far(
     max_choice: Payout,
-    investment: InvestmentV1,
+    investment: InvestmentMinimal,
     best_discharge_result: DischargeResult,
     best_latent_result: LatentResult,
     is_last_timestep: bool,
@@ -247,7 +235,7 @@ def update_best_result_so_far(
     return best_discharge_result, best_latent_result
 
 
-def get_nondominated_consumption_choices(investment: InvestmentV1, resources: int):
+def get_nondominated_consumption_choices(investment: InvestmentMinimal, resources: int):
     """
     Assume: we can't pay over the discharge threshold for a given investment.
     If the investment cannot deliver a resource profit on the current turn, include every choice up to the discharge
@@ -264,7 +252,7 @@ def get_nondominated_consumption_choices(investment: InvestmentV1, resources: in
 
 
 def boundedly_optimise_max_investment(
-    investments: set[InvestmentV1], resources: int, lookahead_steps: int
+    investments: set[InvestmentMinimal], resources: int, lookahead_steps: int
 ) -> ResourcePath:
     """
     A branch-and-bound programming approach considering all optimal paths through time for a given level of total resource

@@ -2,12 +2,12 @@ from dataclasses import dataclass
 from types import MethodType
 from typing import Callable
 
-from models.class_1.classes import InvestmentV1
+from models.class_1.classes import InvestmentMinimal
 
 
-class InvestmentV2(InvestmentV1):
+class InvestmentV2(InvestmentMinimal):
     """
-    Same as InvestmentV1 but now with a baseline reward depletion rate reflecting entropy.
+    Same as InvestmentMinimal but now with a baseline reward depletion rate reflecting entropy.
     """
 
     baseline_reward_depletion_rate: float
@@ -76,15 +76,15 @@ class InvestmentV2(InvestmentV1):
 class OtherEnvironmentalFactors:
     """
     Contains the parameters determine other aspects of the agent's environment, apart from the investments within it.
-    Not used for the V1 model, just here as an illustration.
+    Not used for the Minimal model, just here as an illustration.
     """
 
     energetic_depletion_rate: float = 1.0  # baseline energetic resources of the agent depleted per time step
 
 
 @dataclass
-class AgentV1:
-    energetic_resources: int = 100  # ignore this in V1
+class AgentMinimal:
+    energetic_resources: int = 100  # ignore this in Minimal
     expected_lifespan: int = (
         700800  # lifespan in model timesteps ~ 80 years if each timestep is an hour (24 * 365 * 80)
     )

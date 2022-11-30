@@ -1,15 +1,9 @@
 from dataclasses import dataclass
-from typing import TypedDict
+
+from models.deterministic.types import Payout
 
 
-class Payout(TypedDict):
-    discharge_reached: bool
-    reward: int
-    resource_profit: int
-    resources_spent: int
-
-
-class InvestmentV1:
+class InvestmentMinimal:
     """
     A thing in the environment into which an agent invests resources, from which the agent expects to receive reward
     from their total investment according to the given "resources_to_reward" method and/or additional resources according
@@ -134,7 +128,7 @@ class InvestmentV1:
 class OtherEnvironmentalFactors:
     """
     Contains the parameters determine other aspects of the agent's environment, apart from the investments within it.
-    Not used for the V1 model, just here as an illustration.
+    Not used for the Minimal model, just here as an illustration.
     """
 
     energetic_depletion_rate: float = 1.0  # baseline energetic resources of the agent depleted per time step
@@ -142,7 +136,7 @@ class OtherEnvironmentalFactors:
 
 
 @dataclass
-class AgentV1:
+class AgentMinimal:
     energetic_resources: int = 100
     expected_lifespan: int = 1000
 
@@ -153,7 +147,7 @@ class ResourcePath:
     resources_to_spend: int
     reward_to_date: int
     investments_chosen: list[str]
-    world_copy: list[InvestmentV1]
+    world_copy: list[InvestmentMinimal]
     # fields for plotting
     resource_level_at_each_step: list[int]
     reward_level_at_each_step: list[int]

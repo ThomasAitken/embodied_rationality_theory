@@ -29,7 +29,9 @@ class Args(TypedArgs):
     class_: Literal["deterministic", "mean_variance", "total"] = arg(
         "class", positional=True, help="The class of model to simulate"
     )
-    version: Literal["v1", "v2"] = arg("version", positional=True, help="The version of the model to simulate")
+    version: Literal["minimal", "minimal_unselfish"] = arg(
+        "version", positional=True, help="The version of the model to simulate"
+    )
     agent_starting_resources: int = arg("resources", positional=True, help="The agent's starting resources")
     num_investments: int = arg("investments", positional=True, help="The number of investments in the world")
     num_timesteps: int = arg("timesteps", positional=True, help="The number of timesteps in the simulation")
@@ -48,7 +50,7 @@ def simulate(args: Args):
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
 
-    if args.class_ == "deterministic" and args.version == "v1":
+    if args.class_ == "deterministic" and args.version == "minimal":
         simulate_deterministic(
             args.agent_starting_resources,
             args.num_investments,
